@@ -1,0 +1,23 @@
+# In this section we will web scrape a wiki page that holds relevant information
+# and store it as a dataframe for later use
+# Import the necessary libraries 
+require("rvest")
+library(rvest)
+
+# Get the root HTML node, extract the table 
+url <- "https://en.wikipedia.org/wiki/List_of_bicycle-sharing_systems"
+root_node <- read_html(url)
+table_nodes <- html_node(root_node, "table")
+table_nodes
+
+# Convert the table into a dataframe
+bike_sharing_df <- html_table(table_nodes)
+bike_sharing_df
+
+# Summarize the data frame to get a look at the extracted data and data types
+summary(bike_sharing_df)
+
+# Export the data frame 
+write.csv(bike_sharing_df,file="raw_bike_sharing_systems.csv",row.names = FALSE,col.names=FALSE,sep=",")
+
+# This is the table we will use 
