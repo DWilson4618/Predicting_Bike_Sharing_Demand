@@ -1,0 +1,97 @@
+# Now that we have collected some raw datasets from several sources, we need to perform some wrangling
+# in order to imporve data quality
+#
+# Import the required libraries
+require("tidyverse")
+library(tidyverse)
+
+# For this task we are given some collected files that maintain a sense of consistency across the project
+# Download the necessary files or use the files youve already collected
+
+# Download raw_bike_sharing_systems.csv
+url <- "https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-RP0321EN-SkillsNetwork/labs/datasets/raw_bike_sharing_systems.csv"
+download.file(url, destfile = "raw_bike_sharing_systems.csv")
+
+# Download raw_cities_weather_forecast.csv
+url <- "https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-RP0321EN-SkillsNetwork/labs/datasets/raw_cities_weather_forecast.csv"
+download.file(url, destfile = "raw_cities_weather_forecast.csv")
+
+# Download raw_worldcities.csv
+url <- "https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-RP0321EN-SkillsNetwork/labs/datasets/raw_worldcities.csv"
+download.file(url, destfile = "raw_worldcities.csv")
+
+# Download raw_seoul_bike_sharing.csv
+url <- "https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-RP0321EN-SkillsNetwork/labs/datasets/raw_seoul_bike_sharing.csv"
+download.file(url, destfile = "raw_seoul_bike_sharing.csv")
+
+# We will create a data set list, this will allow us to to normalize columns later
+dataset_list <- c('raw_bike_sharing_systems.csv', 'raw_seoul_bike_sharing.csv', 'raw_cities_weather_forecast.csv', 'raw_worldcities.csv')
+
+# Next we will upper case all column names and replace white space with underscores
+for (dataset_name in dataset_list){
+    dataset <- read_csv(dataset_name)
+    names(dataset) <- toupper(names(dataset))
+    names(dataset) <- str_replace_all(names(dataset), " ", "_")
+    write.csv(dataset, dataset_name, row.names=FALSE)
+}
+
+# Now check to see if the changes have been saved 
+for (dataset_name in dataset_list){
+    dataset <- read_csv(dataset_name)
+    print(summary(dataset))
+}
+
+# Now that we have normalized the columns of our data set we can begin to process the web-scraped
+# bike sharing system dataset
+
+# First load the dataset and print its head
+bike_sharing_df <- read_csv("raw_bike_sharing_systems.csv")
+head(bike_sharing_df)
+
+# For this project we will only focus on the following columns 'COUNTRY', 'CITY', 'SYSTEM', 'BICYCLES'. 
+# You can process the other columns if you would like
+# From our data set we will remove the undesirable, embedded textual content, such as the reference links
+
+# Select our four columns and check their class
+sub_bike_sharing_df <- bike_sharing_df %>% select(COUNTRY, CITY, SYSTEM, BICYCLES)
+sub_bike_sharing_df %>% 
+    summarize_all(class) %>%
+    gather(variable, class)
+
+# Now lets evaluate why our 'BICYCLES' column isnt of type numeric like we expect
+# This function will take an a column for input and locate and return all values that inlcude a non-numric character
+find_character <- function(strings) grepl("[^0-9]", strings)
+
+# Run the function on the data frame
+sub_bike_sharing_df %>% 
+    select(BICYCLES) %>% 
+    filter(find_character(BICYCLES)) %>%
+    slice(0:10)
+    
+# You will notice that many rows incluce non-numeric characters, and we'll clean this up later, for now lets
+# look at the other columns in our subset
+
+#For this we create a new function that looks for any character wrapped in a square bracket
+ref_pattern <- "\\[[A-z0-9]+\\]"
+find_reference_pattern <- function(strings) grepl(ref_pattern, strings)
+
+# Now we check the other three columns
+sub_bike_sharing_df %>% 
+    select(COUNTRY) %>% 
+    filter(find_reference_pattern(COUNTRY)) %>%
+    slice(0:10)
+    
+sub_bike_sharing_df %>% 
+    select(CITY) %>% 
+    filter(find_reference_pattern(CITY)) %>%
+    slice(0:10)
+    
+sub_bike_sharing_df %>% 
+    select(SYSTEM) %>% 
+    filter(find_reference_pattern(SYSTEM)) %>%
+    slice(0:10)
+    
+# we can see that 'COUNTRY' is clean, while the 'CITY' and 'SYSTEM' need to be cleaned
+
+# Now we can remove undesired reference links using regular expressions
+
