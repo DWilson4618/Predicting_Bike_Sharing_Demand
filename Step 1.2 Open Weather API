@@ -17,3 +17,139 @@ your_api_key <- #"YOUR API KEY"#
 # Input `appid` is your API KEY, 
 # Input `units` are preferred units such as Metric or Imperial
 current_query <- list(q = "Seoul", appid = your_api_key, units="metric")
+
+# Now we can make a HTTP request to get the current weather API
+response <- GET(current_weather_url, query=current_query)
+http_type(response)
+
+# Next we read the JSON HTTP response, check its class, and then print the results
+json_result <- content(response, as="parsed")
+class(json_result)
+json_result
+
+# Next we create an empty vecotr list to hold data temporatily 
+weather <- c()
+visibility <- c()
+temp <- c()
+temp_min <- c()
+temp_max <- c()
+pressure <- c()
+humidity <- c()
+wind_speed <- c()
+wind_deg <- c()
+
+# Assign the values in the json_result list into the vecotrs
+# $weather is also a list with one element, 
+# its $main element indicates the weather status such as clear or rain
+weather <- c(weather, json_result$weather[[1]]$main)
+# Get Visibility
+visibility <- c(visibility, json_result$visibility)
+# Get current temperature 
+temp <- c(temp, json_result$main$temp)
+# Get min temperature 
+temp_min <- c(temp_min, json_result$main$temp_min)
+# Get max temperature 
+temp_max <- c(temp_max, json_result$main$temp_max)
+# Get pressure
+pressure <- c(pressure, json_result$main$pressure)
+# Get humidity
+humidity <- c(humidity, json_result$main$humidity)
+# Get wind speed
+wind_speed <- c(wind_speed, json_result$wind$speed)
+# Get wind direction
+wind_deg <- c(wind_deg, json_result$wind$deg)
+
+# Now combine all the vectors into a dataframe and check the data frame
+weather_data_frame <- data.frame(weather=weather, 
+                                 visibility=visibility, 
+                                 temp=temp, 
+                                 temp_min=temp_min, 
+                                 temp_max=temp_max, 
+                                 pressure=pressure, 
+                                 humidity=humidity, 
+                                 wind_speed=wind_speed, 
+                                 wind_deg=wind_deg)
+print(weather_data_frame)
+
+# Now for the 5 Day forecast, we repeat the same steps above, creating empty vecotrs, store the values
+# then create a data frame. 
+# City name column
+city <- c()
+# Weather column, rainy or cloudy, etc
+weather <- c()
+# Sky visibility column
+visibility <- c()
+# Current temperature column
+temp <- c()
+# Max temperature column
+temp_min <- c()
+# Min temperature column
+temp_max <- c()
+# Pressure column
+pressure <- c()
+# Humidity column
+humidity <- c()
+# Wind speed column
+wind_speed <- c()
+# Wind direction column
+wind_deg <- c()
+# Forecast timestamp
+forecast_datetime <- c()
+# Season column
+season <- c()
+
+# Get forecast data for a given city list
+get_weather_forecaset_by_cities <- function(city_names){
+    df <- data.frame()
+    for (city_name in city_names){
+        forecast_url <- 'https://api.openweathermap.org/data/2.5/forecast'
+        forecast_query <- list(q = city_name, appid = "1b7d10b2e3056880ba99455d14a3c4f3", units="metric")
+        response <- GET(forecast_url, query= forecast_query)
+        json_result <- content(response, as="parsed")
+        results <-json_result$list
+        for(result in results) {
+            city <- c(city, city_name)
+            weather <- c(weather, result$weather[[1]]$main)
+            visibility <- c(visibility, result$visibility)
+            temp <- c(temp,result$main$temp)
+            temp_min <- c(temp_min,result$main$temp_min)
+            temp_max <- c(temp_max, result$main$temp_max)
+            pressure <- c(pressure, result$main$pressure)
+            humidity <- c(humidity,result$main$humidity)
+            wind_speed <- c(wind_speed,result$wind$speed)
+            wind_deg <- c(wind_deg, result$wind$deg)
+            forecast_datetime <- c(forecast_datetime, result$dt_txt)
+            season <- c(season,"spring")
+        }
+        # Assign the values to a data frame
+        df <- data.frame(
+            city=city,
+            weather=weather,
+            visibility=visibility,
+            temp=temp,
+            temp_min=temp_min,
+            temp_max=temp_max,
+            pressure=pressure,
+            humidity=humidity,
+            wind_speed=wind_speed,
+            wind_deg=wind_deg,
+            forecast_datetime=forecast_datetime,
+            season=season)
+    }
+    return(df)
+
+# Now create a list that holds the cities you would like to get a 5 day forecast for and call the function
+cities <- c("Seoul", "Washington, D.C.", "Paris", "Suzhou")
+cities_weather_df <- get_weather_forecaset_by_cities(cities)
+
+# Check the weather forcast data frame
+cities_weather_df
+
+# Save the new data frame with the weather values into a new file for future processing
+write.csv(cities_weather_df, "cities_weather_forecast.csv", row.names=FALSE)
+
+# The last step is to download some aggregated datasets from cloud storage
+url <- "https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-RP0321EN-SkillsNetwork/labs/datasets/raw_worldcities.csv"
+download.file(url, destfile = "raw_worldcities.csv")
+url2 <- "https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-RP0321EN-SkillsNetwork/labs/datasets/raw_seoul_bike_sharing.csv"
+download.file(url2, destfile = "raw_seoul_bike_sharing.csv")
