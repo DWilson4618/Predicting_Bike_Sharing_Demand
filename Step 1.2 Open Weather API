@@ -1,0 +1,19 @@
+# For this step we will be collecting real-time current and forecasted weather data for 
+# cities using the OpenWeather API. 
+# For this step you will need to create an account with Open Weather and generate an 
+# Api key to use to extract the weather data. Below i have provided the code and removed
+# the API key to prevent use of my personal account
+
+# Import the proper libraries 
+require("httr")
+library(httr)
+
+# URL for Current Weather API
+current_weather_url <- 'https://api.openweathermap.org/data/2.5/weather'
+
+# need to be replaced by your real API key
+your_api_key <- #"YOUR API KEY"#
+# Input `q` is the city name
+# Input `appid` is your API KEY, 
+# Input `units` are preferred units such as Metric or Imperial
+current_query <- list(q = "Seoul", appid = your_api_key, units="metric")
