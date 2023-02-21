@@ -93,5 +93,52 @@ sub_bike_sharing_df %>%
     
 # we can see that 'COUNTRY' is clean, while the 'CITY' and 'SYSTEM' need to be cleaned
 
-# Now we can remove undesired reference links using regular expressions
+# Now we can remove undesired reference links using regular expressions 
+# First we define a function to do the heavy lifting
+remove_ref <- function(strings) {
+    result <- str_replace_all(strings,"\\[[A-z0-9]+\\]","")
+    result <- str_squish(strings)
+    # Trim the reslt if you want
+    return(result)
+}
 
+# Next we mutate the columns in the data frame passing the columns into the the function we just defined
+result <- sub_bike_sharing_df %>%
+mutate(COUNTRY=remove_ref(COUNTRY),
+       CITY=remove_ref(CITY),
+       SYSTEM=remove_ref(SYSTEM),
+       BICYCLES=remove_ref(BICYCLES))
+
+# Now check our columns to make sure all reference links are removed
+result %>% 
+    select(CITY, SYSTEM, BICYCLES) %>% 
+    filter(find_reference_pattern(CITY) | find_reference_pattern(SYSTEM) | find_reference_pattern(BICYCLES))
+
+# The next step is to extract the numeric values from our 'BICYCLES' column and convert the values to numeric
+extract_num <- function(columns){
+    result <- str_extract(columns,"[0-9]+")
+    result <- as.numeric(result)
+    return(result)
+}
+
+# Now mutate the 'BICYCLES' to extract and reassign the values then print the results 
+result <- result %>%
+mutate(BICYCLES=extract_num(BICYCLES))
+result
+
+# Now we can use the summary function to check the descriptive statistics of the 'BICYCLES' column
+summary(result$BICYCLES)
+
+# Now the last step is to remove the 'NA' values from our data set
+# first count the number of na values
+sum(is.na(result))
+
+# Now drop the na values and assign the new data frame to a new variable and check its na values
+cleaned_data <- drop_na(result)
+sum(is.na(cleaned_data))
+
+# You can also print a summary of the new data frame
+summary(cleaned_data)
+
+# Now save the cleaned data frame
+write.csv(cleaned_data, "bike_sharing_systems.csv", row.index=False)
