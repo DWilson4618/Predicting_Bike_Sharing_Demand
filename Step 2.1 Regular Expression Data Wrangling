@@ -141,4 +141,4 @@ sum(is.na(cleaned_data))
 summary(cleaned_data)
 
 # Now save the cleaned data frame
-write.csv(cleaned_data, "bike_sharing_systems.csv", row.index=False)
+write.csv(cleaned_data, "bike_sharing_systems.csv", row.names=FALSE)
