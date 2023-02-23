@@ -46,10 +46,40 @@ avg_rain_snow
 # Now lets visualize our data 
 #
 # First start with importing the ggplot2 package
+install.packages("ggplot2")
+library(ggplot2)
 
+# Now lets visualize the 'RENTED_BIKE_COUNT' vs 'DATE'
+rented_bike_vs_date <- ggplot(seoul_bike_sharing_df,
+                              aes(DATE,
+                                  RENTED_BIKE_COUNT,
+                                  color=HOUR,
+                                  alpha=0.2))+
+geom_point()
+rented_bike_vs_date
 
+# Now create a histogram overlaid with a kernel density curve
+ggplot(seoul_bike_sharing_df,aes(RENTED_BIKE_COUNT))+
+geom_histogram(aes(y=..density..), colour='white', fill="blue", bins=25) +
+geom_density()
 
+# Plot a scatter plot between 'RENTED_BIKE_COUNT' and 'TEMPERATURE' by 'SEASONS'
+ggplot(seoul_bike_sharing_df,
+       aes(TEMPERATURE,
+           RENTED_BIKE_COUNT,
+           color=HOUR,
+           alpha=0.2))+
+geom_point()+
+facet_wrap(~SEASONS)
 
+# Create a display of four boxplots of 'RENTED_BIKE_COUNT' vs 'HOUR' grouped by 'SEASONS'
+ggplot(seoul_bike_sharing_df,
+       aes(HOUR,
+           RENTED_BIKE_COUNT,
+           color=HOUR,
+           alpha=0.2))+
+geom_boxplot()+
+facet_wrap(~SEASONS)
 
 
 
