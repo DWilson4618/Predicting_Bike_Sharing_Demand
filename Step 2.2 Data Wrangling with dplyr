@@ -1,1 +1,111 @@
+# In this section we will focus on wragling the Seoul bike-sharing demand historical dataset. 
+# This dataset will be the core dataset that we use to build a predictive model later
+#
+# Import the required libraries 
+require("tidyverse")
+library(tidyverse)
 
+# Now load the previous dataset that we processed
+bike_sharing_df <- read_csv("raw_seoul_bike_sharing.csv")
+
+# First do a quick look of the dataset
+summary(bike_sharing_df)
+dim(bike_sharing_df)
+
+# From the summary we can observe a few key points of interest, like 'RENTED_BIKE_COUNT', 'TEMPERATURE',
+# 'HUMIDITY', 'WIND_SPEED', 'VISIBILITY', 'DEW_POINT_TEMPERATURE', 'SOLAR_RADIATION', 'RAINFALL', and
+# 'SNOWFALL' are numerical variables/columns and require normalization. Moreover, 'RENTED_BIKE_COUNT' and
+# 'TEMPERATURE' have some missing values (NA's) that need to be handled properly. 
+#
+# We can also see that 'SEASONS', 'HOLIDAY', 'FUNCTIONING_DAY' are categorical variables which need to be 
+# converted into indicator columns or dummy variables. Also 'HOUR' is read as a numerical variable but it 
+# is infact a categroical variable with levels ranging from 0 to 23. 
+#
+# Now lets begin by handling the value sin our dependent variable 'RENTED_BIKE_COUNT' by first counting them
+sum(is.na(bike_sharing_df$RENTED_BIKE_COUNT))
+
+# Next drop the na values and double check that they're no longer in the column
+bike_sharing_df <- bike_sharing_df %>%
+drop_na(RENTED_BIKE_COUNT)
+sum(is.na(bike_sharing_df$RENTED_BIKE_COUNT))
+
+# Next we will look at the na values in 'TEMPERATURE' by filtering the data set and listing its NA's rows
+bike_sharing_df %>%
+filter(is.na(TEMPERATURE))
+
+# The NA values fall into the summer season, so we will average the summer temp and replace the NA's with it
+summer_avg_temp <- bike_sharing_df %>%
+select(TEMPERATURE, SEASONS) %>%
+filter(SEASONS == 'Summer')
+summary(summer_avg_temp)
+
+# Now we can assign the NA values using the average temp
+avg_summer_temp <- 26.59
+bike_sharing_df$TEMPERATURE <- replace_na(bike_sharing_df$TEMPERATURE, avg_summer_temp)
+
+# Check our data set to make sure the NA values have been dealt with
+summary(bike_sharing_df)
+
+# Now save the data set for use later
+write.csv(bike_sharing_df, "seoul_bike_sharing.csv", row.names=FALSE)
+
+# The next step is to convert our categorical variables into indicator variables for use with regression models
+# The 'HOUR' column is read as a numeric type but is suppose to be a categorical type that ranges from 0 to 23
+# We need to convert this columns data type 
+bike_sharing_df %>%
+mutate(HOUR = as.character(HOUR))
+
+# Now were ready to convert the 'SEASONS', 'HOLIDAY', 'FUNCTIONING_DAY', and 'HOUR' column into indicator columns
+bike_sharing_df <- bike_sharing_df %>%
+mutate(dummy=1) %>%
+spread(key = SEASONS, value = dummy, fill = 0) %>%
+mutate(dummy=1) %>%
+spread(key = HOLIDAY, value = dummy, fill = 0) %>%
+mutate(dummy=1) %>%
+spread(key = FUNCTIONING_DAY, value = dummy, fill = 0) %>%
+mutate(dummy=1) %>%
+spread(key = HOUR, value = dummy, fill = 0)
+
+# Print the dataset summary to make sure the columns were created
+summary(bike_sharing_df)
+
+# Now save the data set for use with regression later
+write.csv(bike_sharing_df, "seoul_bike_sharing_converted.csv", row.names=FALSE)
+
+# Next we focus on normalizing the data set so the values fall into respective ranges for more impactful analysis
+
+# First build a new function that will normalize values passed into it
+minMax <- function(x) {
+    (x - min(x)) / (max(x) - min(x))
+    }
+
+# Now mutate the columns you would like normalized and print its head to check the conversion
+bike_sharing_df <- bike_sharing_df %>%
+mutate(RENTED_BIKE_COUNT = minMax(RENTED_BIKE_COUNT),
+       TEMPERATURE = minMax(TEMPERATURE),
+       HUMIDITY = minMax(HUMIDITY),
+       WIND_SPEED = minMax(WIND_SPEED),
+       VISIBILITY = minMax(VISIBILITY),
+       DEW_POINT_TEMPERATURE = minMax(DEW_POINT_TEMPERATURE),
+       SOLAR_RADIATION = minMax(SOLAR_RADIATION),
+       RAINFALL = minMax(RAINFALL),
+       SNOWFALL = minMax(SNOWFALL))
+head(bike_sharing_df)
+
+# Next print a summary to make sure the numeric columns have been normalized
+summary(bike_sharing_df)
+
+# Now save the converted an dnormalized dataset 
+write.csv(bike_sharing_df, "seoul_bike_sharing_converted_normalized.csv", row.names=FALSE)
+
+# you can also normalize the names within the dataset again since we've introduced new columns
+dataset_list <- c('seoul_bike_sharing.csv', 'seoul_bike_sharing_converted.csv', 'seoul_bike_sharing_converted_normalized.csv')
+
+for (dataset_name in dataset_list){
+    dataset <- read_csv(dataset_name)
+    names(dataset) <- toupper(names(dataset))
+    names(dataset) <- str_replace_all(names(dataset), " ", "_")
+    write.csv(dataset, dataset_name, row.names=FALSE)
+}
+
+# Now that we've normalized our dataset we can begin regression analysis in the next sections
