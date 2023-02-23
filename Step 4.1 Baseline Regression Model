@@ -1,0 +1,24 @@
+# In this section will use the insight we've gathered from previous analysis to build
+# a baseline regression model 
+#
+# For this we will use tidymodels to build the linear regression models
+#
+# First import the required packages
+install.packages("rlang")
+install.packages("tidymodels")
+library("tidymodels")
+library("tidyverse")
+library("stringr")
+
+# Now download the dataset that we will be using 
+dataset_url <- "https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-RP0321EN-SkillsNetwork/labs/datasets/seoul_bike_sharing_converted_normalized.csv"
+bike_sharing_df <- read.csv(dataset_url)
+
+# Since we dont need the 'DATE' column, or the 'FUNCTIONING_DAY' column we can subset our dataset without those two columns
+bike_sharing_df <- bike_sharing_df %>% 
+                   select(-DATE, -FUNCTIONING_DAY)
+bike_sharing_df
+
+# Now we need to split our dataset into the testing and training dataset
+# We'll use seed 1234
+set.seed(1234)
