@@ -1,0 +1,60 @@
+# In this section we will perform some visualizations on our data sets to drive deeper
+# understandings of the relationships between our predictor and dependent variables
+
+# First we load the dataset and check its class
+seoul_bike_sharing <- "https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-RP0321EN-SkillsNetwork/labs/datasets/seoul_bike_sharing.csv"  
+seoul_bike_sharing_df <- read.csv(seoul_bike_sharing)
+sapply(seoul_bike_sharing_df, class)
+
+# Next we recast the date, using the format of the dataset and check its class
+seoul_bike_sharing_df$DATE <- as.Date(seoul_bike_sharing_df$DATE, "%Y/%m/%d")
+sapply(seoul_bike_sharing_df, class)
+
+# Next we cast the 'HOUR' column as categorical and check its class
+seoul_bike_sharing_df$HOUR <- as.factor(seoul_bike_sharing_df$HOUR)
+sapply(seoul_bike_sharing_df, class)
+
+# Check the structure of the dataframe
+str(seoul_bike_sharing_df)
+
+# Finally, ensure there are no missing values
+sum(is.na(seoul_bike_sharing_df))
+
+# Now we can look at some high level stats of the dataset
+summary(seoul_bike_sharing_df)
+
+# How many Holidays are there
+sumary(seoul_bike_sharing_df$HOLIDAY)
+
+# what is the percentage of records that fall on a holiday
+408/8057
+
+# How many records should be expect to have in our data set considering there is a full year of data
+str(seoul_bike_sharing_df$DATE)
+
+# Based on the 'FUNCTIONING_DAY' how many records must there be? 
+summary(seoul_bike_sharing_df$FUNCTIONING_DAY)
+
+# Now load the dplyr package, group the data by 'SEASONS' and use the summarize function to 
+# calculate the seasonal total rainfall and snowfall
+avg_rain_snow <- seoul_bike_sharing_df %>%
+group_by(SEASONS) %>%
+summarize(mean_snow = mean(SNOWFALL,na.rm=TRUE),
+          mean_rain = mean(RAINFALL,na.rm=TRUE))
+avg_rain_snow
+
+# Now lets visualize our data 
+#
+# First start with importing the ggplot2 package
+
+
+
+
+
+
+
+
+
+
+
+
