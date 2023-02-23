@@ -1,1 +1,121 @@
 # For this section we will perform exploratory data analysis
+#
+# Install the required packages
+install.packages("RSQLite")
+library("RSQLite")
+
+# Make the connection to the database
+con <- dbConnect(RSQLite::SQLite(),"TestDB.sqlite")
+con
+
+# Next you will store the files into data frames
+WORLD_CITIES <- read.csv("https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-RP0321EN-SkillsNetwork/labs/datasets/world_cities.csv")
+BIKE_SHARING_SYSTEMS <- read.csv("https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-RP0321EN-SkillsNetwork/labs/datasets/bike_sharing_systems.csv")
+CITIES_WEATHER_FORECAST <- read.csv("https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-RP0321EN-SkillsNetwork/labs/datasets/cities_weather_forecast.csv")
+SEOUL_BIKE_SHARING <- read.csv("https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-RP0321EN-SkillsNetwork/labs/datasets/seoul_bike_sharing.csv")
+
+# This will upload the tables into the database for EDA exploring
+dbWriteTable(con, "WORLD_CITIES", WORLD_CITIES)
+dbWriteTable(con, "BIKE_SHARING_SYSTEMS", BIKE_SHARING_SYSTEMS)
+dbWriteTable(con, "CITIES_WEATHER_FORECAST", CITIES_WEATHER_FORECAST)
+dbWriteTable(con, "SEOUL_BIKE_SHARING", SEOUL_BIKE_SHARING)
+
+# Now that our data is in the database, we can now perform sql queries to
+# explore our datasets 
+
+# How many records are in the 'seoul_bike_sharing' dataset
+dbGetQuery(con,"
+select count(*)
+from SEOUL_BIKE_SHARING
+")
+
+# How many hours had non-zero rented bike count
+dbGetQuery(con,"
+select count(HOUR)
+from SEOUL_BIKE_SHARING
+where HOUR != 0
+")
+
+# Retrieve the first row of the 'CITIES_WEATHER_FORECAST' data set
+dbGetQuery(con,"
+select *
+from CITIES_WEATHER_FORECAST
+limit 1
+")
+
+# What seasons are included in the 'SEOUL_BIKE_SHARING' dataset
+dbGetQuery(con, "
+select distinct(SEASONS)
+from SEOUL_BIKE_SHARING
+")
+
+# What is the first and last date in the 'SEOUL_BIKE_SHARING' dataset
+dbGetQuery(con, "
+select MIN(DATE) as LAST, MAX(DATE) as FIRST
+from SEOUL_BIKE_SHARING
+")
+
+# Determine which date and hour had the most bike rentals
+dbGetQuery(con,"
+select HOUR, DATE, RENTED_BIKE_COUNT
+from SEOUL_BIKE_SHARING
+where RENTED_BIKE_COUNT = (select MAX(RENTED_BIKE_COUNT) from SEOUL_BIKE_SHARING)
+")
+
+# Determine the average hourly temp and rented bike by season
+dbGetQuery(con,"
+select
+SEASONS, avg(TEMPERATURE) as Avg_Temp, avg(RENTED_BIKE_COUNT) as Avg_Rented_Bikes
+from SEOUL_BIKE_SHARING
+group by SEASONS
+")
+
+# Find the average hourly bike count during each season, include min, max, standard deviation
+# of the hourly bike count for each season
+dbGetQuery(con,"
+select
+SEASONS,
+MIN(RENTED_BIKE_COUNT) as MIN,
+RENTED_BIKE_COUNT as Bike_Count,
+MAX(RENTED_BIKE_COUNT) as MAX,
+SQRT(AVG(RENTED_BIKE_COUNT*RENTED_BIKE_COUNT)-AVG(RENTED_BIKE_COUNT)*AVG(RENTED_BIKE_COUNT)) as STD_DEV
+from SEOUL_BIKE_SHARING
+group by SEASONS
+")
+
+# Lets find the weather seasonality, averaging the weather elements by season 
+dbGetQuery(con,"
+select
+SEASONS,
+AVG(TEMPERATURE) as Avg_Temp,
+AVG(HUMIDITY) as Avg_Humidity,
+AVG(WIND_SPEED) as Avg_WindSpeed,
+AVG(VISIBILITY) as Avg_Visibility,
+AVG(DEW_POINT_TEMPERATURE) as Avg_DewPointTemp,
+AVG(SOLAR_RADIATION) as Avg_SolarRadiation,
+AVG(RAINFALL) as Avg_RainFall,
+AVG(SNOWFALL) as Avg_SnowFall
+from SEOUL_BIKE_SHARING
+group by SEASONS
+")
+
+# Lets determine the total bike count and city info for Seoul
+dbGetQuery(con,"
+select
+C.CITY,C.COUNTRY,B.BICYCLES,C.LAT,C.LNG,C.POPULATION
+from WORLD_CITIES C, BIKE_SHARING_SYSTEMS B
+where C.CITY == B.CITY
+group by C.CITY having C.CITY == 'Seoul' 
+")
+
+# Find all city names and coordinates with comparable bike scale to Seoul's Bike sharing system
+dbGetQuery(con,"
+select
+C.CITY,C.COUNTRY,B.BICYCLES,C.LAT, C.LNG, C.POPULATION
+from WORLD_CITIES C, BIKE_SHARING_SYSTEMS B
+where C.CITY == B.CITY
+group by C.CITY having BICYCLES between 15000 and 20000
+order by B.BICYCLES desc
+")
+
+# Now we can add some visualization to our dataset to better visualize its relationships 
