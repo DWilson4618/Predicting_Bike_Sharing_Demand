@@ -81,10 +81,15 @@ ggplot(seoul_bike_sharing_df,
 geom_boxplot()+
 facet_wrap(~SEASONS)
 
+# Now group the data by 'DATE', and use the sumarize function to calculate the daily 
+# rainfall and snow fall
+seoul_bike_sharing_df %>%
+group_by(DATE) %>%
+summarize(mean_snow = mean(SNOWFALL,na.rm=TRUE),
+          mean_rain = mean(RAINFALL,na.rm=TRUE))
 
+# Now determine how many days had snowfall 
+avg_rain_snow$mean_snow <- as.factor(avg_rain_snow$mean_snow)
+summary(avg_rain_snow)
 
-
-
-
-
-
+# Now you can perform deeper analysis of the data set using visualization if you wish
