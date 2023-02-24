@@ -22,3 +22,79 @@ bike_sharing_df
 # Now we need to split our dataset into the testing and training dataset
 # We'll use seed 1234
 set.seed(1234)
+data_split <- initial_split(bike_sharing_df, prop = 3/4)
+train_data <- training(data_split)
+test_data <- testing(data_split)
+
+# Next we define a linear regression model 
+lm_spec <- linear_reg() %>%
+set_engine(engine="lm")
+
+# Now we can fit the model with our response variable and the predictor variables
+# for this model we will only fit 'RENTED_BIKE_COUNT', 'TEMPERATURE','HUMIDITY','WIND_SPEED','VISIBILITY',
+# 'DEW_POINT_TEMPERATRUE','SOLAR_RADIATION','RAINFALL','SNOWFALL' and use the training dataset
+lm_model_weather <- lm_spec %>%
+fit(RENTED_BIKE_COUNT ~ TEMPERATURE + HUMIDITY + WIND_SPEED + VISIBILITY + DEW_POINT_TEMPERATURE + SOLAR_RADIATION + RAINFALL + SNOWFALL, data = train_data)
+
+# You can print the summary for the 'lm_model_weather' to view details such as the formula, residuals, and coefficients
+print(lm_model_weather$fit)
+
+# Now we will fit the model with our response variable compared to all the other variables
+lm_model_all <- lm_spec %>%
+fit(RENTED_BIKE_COUNT ~ . , data = train_data)
+
+# again you can print the usmmary for the 'lm_model_all' to view its details
+print(lm_model_all)
+
+# Now we will make predictions for both models to compare their accuracy 
+#lm_model_weather
+weather_model_test <- lm_model_weather %>%
+predict(new_data = test_data) %>%
+mutate(truth = test_data$RENTED_BIKE_COUNT)
+weather_model_test
+
+#lm_model_all
+all_model_test <- lm_model_all %>%
+predict(new_data = test_data) %>%
+mutate(truth=test_data$RENTED_BIKE_COUNT)
+all_model_test
+
+# Now we can calculate the RMSE and RSQ values for both the test results to find the 
+# accuracy of our models 
+rsq_weather <- rsq(test_results_weather, truth=truth, estimate=.pred)
+rsq_all <- rsq(test_results_all, truth=truth, estimate = .pred)
+rmse_weather <- rmse(test_results_weather, truth=truth, estimate = .pred)
+rmse_all <- rmse(test_results_all, truth=truth, estimate=.pred)
+
+# You can see that the model that factors in all the variables has a better evaluation for accuracy
+
+# You could try building another regression model using the non-normalized dataset, and you would find
+# that the coefficients are much different
+
+# Print all the coefficients
+lm_model_all$fit$coefficients
+
+# Now lets visualize this sorted list with a bar chart
+# Since we are only interested in seeing the impact of our coefficients we can
+# remove the negative values and plot our coeffiencts by impact
+
+# Lets sort this list of coefficients remvoing negatives, and creating a data frame
+all_coef_sorted <- sort(abs(coef(lm_model_all$fit)), decreasing = TRUE)
+all_coef_sorted_df <- as.data.frame(all_coef_sorted)
+
+# Lets clean this data frame up 
+all_coef_sorted_df["coefficients"] <- all_coef_sorted_df$all_coef_sorted
+colnames(all_coef_sorted_df)[1]="coef_names"
+all_coef_sorted_df['coef_names'] <- row.names(all_coef_sorted_df)
+row.names(all_coef_sorted_df) <- NULL
+# This created a new column titled coefficients 
+# renamed the first column to coef_names
+# assigned the rown names to the coef_names
+# then removed the row names from the data frame
+
+# Now we can plot out bar chart
+ggplot(all_coef_sorted_df, aes(x=coef_val, y=reorder(coef_name, coef_val, sum)))+
+geom_bar(stat="identity")
+
+# Now that we have a base line simple regression model, we can begin fine tuining our
+# model for better analysis
