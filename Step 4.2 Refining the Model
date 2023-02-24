@@ -1,0 +1,263 @@
+# Now that we have a baseline regression model, we can furter refine it so it makes better
+# predicitons
+#
+# Import the required libraries
+install.packages('glmnet')
+library('glmnet')
+library("tidymodels")
+library("tidyverse")
+library("stringr")
+
+# Read in the dataset
+dataset_url <- "https://cf-courses-data.s3.us.cloud-object-storage.appdomain.cloud/IBMDeveloperSkillsNetwork-RP0321EN-SkillsNetwork/labs/datasets/seoul_bike_sharing_converted_normalized.csv"
+bike_sharing_df <- read.csv(dataset_url)
+
+# Filter out the data we dont need
+bike_sharing_df <- bike_sharing_df %>% 
+                   select(-DATE, -FUNCTIONING_DAY)
+
+# Define a linear regression model specification
+lm_spec <- linear_reg() %>%
+  set_engine("lm") %>% 
+  set_mode("regression")
+  
+# Split the data
+set.seed(1234)
+data_split <- initial_split(bike_sharing_df, prop = 4/5)
+train_data <- training(data_split)
+test_data <- testing(data_split)
+
+# Plot the relationship between the 'RENTED_BIKE_COUNT' vs 'TEMPERATURE'
+ggplot(data = train_data, aes(RENTED_BIKE_COUNT, TEMPERATURE)) + 
+    geom_point() 
+    
+# Plot a Higher order polynomial 
+ggplot(data=train_data, aes(RENTED_BIKE_COUNT, TEMPERATURE)) + 
+    geom_point() + 
+    geom_smooth(method = "lm", formula = y ~ x, color="red") + 
+    geom_smooth(method = "lm", formula = y ~ poly(x, 2), color="yellow") + 
+    geom_smooth(method = "lm", formula = y ~ poly(x, 4), color="green") + 
+    geom_smooth(method = "lm", formula = y ~ poly(x, 6), color="blue")
+
+# Fit a linear model with higher order polynomial on some important variables from the last section
+lm_poly <- lm_spec %>% 
+fit(RENTED_BIKE_COUNT ~ 
+        RAINFALL +  SNOWFALL  + 
+        + poly(HUMIDITY, 4) + 
+        poly(DEW_POINT_TEMPERATURE, 4) +
+        + poly(TEMPERATURE, 4) + poly(SOLAR_RADIATION, 4) + 
+        VISIBILITY + WIND_SPEED + HOLIDAY +
+        WINTER + SPRING + SUMMER + AUTUMN +
+        `X0` + `X1` + `X2` + `X3` + `X4` + `X5` + `X6` + `X7` + `X8` + `X9` + `X10` + `X11` + 
+        `X12` + `X13` + `X14` + `X15` + `X16` + `X17` + `X18` + `X19` + `X20` + `X21` + `X22` + `X23`, 
+      data = train_data)
+lm_poly
+
+# Print a model summary
+summary(lm_poly$fit)
+
+# Generate a test results for 'lm_poly'
+test_results<-lm_poly %>%
+predict(new_data=test_data)%>%
+mutate(truth=test_data$RENTED_BIKE_COUNT)
+test_results
+
+# Another minor improvement would be converting all negative predictions to zero, because we
+# can not have negative rented bike counts
+test_results[test_results<0] <- 0
+test_results
+
+# Now Calculate R-squared and RMSE from the test results
+test_rsq <- rsq(test_results,.pred,truth)
+test_rmse <- rmse(test_results,.pred,truth)
+test_rsq
+test_rmse
+
+# Lets add some interaction terms then follow the same path to get the evaluation metrics
+lm_model2 <- lm_spec %>% 
+  fit(RENTED_BIKE_COUNT ~ 
+        RAINFALL*HUMIDITY + HUMIDITY*DEW_POINT_TEMPERATURE + 
+        SUMMER * SOLAR_RADIATION + WINTER * SOLAR_RADIATION +
+        HOLIDAY*`X7` + HOLIDAY*`X8` + HOLIDAY*`X9` + HOLIDAY*`X10` + 
+        poly(TEMPERATURE, 4) + poly(HUMIDITY, 4) + 
+        poly(DEW_POINT_TEMPERATURE, 2) + poly(SOLAR_RADIATION, 4) + 
+        RAINFALL +  SNOWFALL + VISIBILITY + WIND_SPEED + HOLIDAY + SNOWFALL +
+        WINTER + SPRING + SUMMER + AUTUMN + 
+        `X0`+ `X1` + `X2` + `X3` + `X4` + `X5` + `X6`  + `X11` + 
+        `X12` + `X13` + `X14` + `X15` + `X16` + `X17` + `X18` + `X19` + `X20` + `X21` + `X22` + `X23`, 
+      data = train_data)
+test_results2<-lm_model2 %>%
+predict(new_data=test_data)%>%
+mutate(truth=test_data$RENTED_BIKE_COUNT)
+test_results2[test_results2<0] <- 0
+rsq_model2 <- rsq(test_results2,.pred,truth)
+rmse_model2 <-rmse(test_results2,.pred,truth)
+rsq_model2
+rmse_model2
+
+# print a model summary
+summary(lm_model2$fit)
+
+# Lets add some regularization to our model
+
+# Switch our regression engine to glmnet, build our recipe, create the workflow object, 
+# train the model, and return the results
+br_ridge_recipe <-
+recipe(RENTED_BIKE_COUNT ~ .,
+      data = train_data)
+
+br_ridge_spec <- linear_reg(penalty=0.1, mixture=1)%>%
+set_engine("glmnet")
+
+br_ridge_wf <- workflow()%>%
+add_recipe(br_ridge_recipe)
+
+br_ridge_fit <- br_ridge_wf %>%
+add_model(br_ridge_spec) %>%
+fit(data=train_data)
+
+br_ridge_results <- br_ridge_fit %>%
+pull_workflow_fit() %>%
+tidy()
+
+br_ridge_results
+
+# define a linear regerssion model specification glmnet_spec using glmnet engine
+bike_rental_recipe <- recipe(RENTED_BIKE_COUNT~., 
+      data = train_data)
+
+# You could manually try different parameter combinations or use grid search to find optimal combinations
+tune_spec <- linear_reg(penalty = tune(),
+                        mixture = 1)%>%
+set_engine("glmnet")
+
+rental_cvfold <- vfold_cv(train_data)
+
+ridge_wf <- workflow() %>%
+add_recipe(bike_rental_recipe)
+
+ridge_fit <- ridge_wf %>%
+add_model(tune_spec) %>%
+fit(data = train_data)
+
+lambda_grid <- grid_regular(levels = 50,
+                             penalty(range = c(-3, 0.3)))
+lasso_grid <- tune_grid(
+    ridge_wf %>% add_model(tune_spec),
+    resamples=rental_cvfold,grid = lambda_grid)
+    
+#Show the best results from the grid search   
+show_best(lasso_grid, metric="rmse")
+show_best(lasso_grid, metric="rsq")
+
+# Plot a line for the RMSE
+lasso_grid %>%
+  collect_metrics() %>%
+  filter(.metric == "rmse") %>%
+  ggplot(aes(penalty, mean)) +
+  geom_line(size=1, color="red") +
+  scale_x_log10() +
+  ggtitle("RMSE")
+
+# Now exerpiment to search for improved models below are my alternative models 
+
+# Model 3
+lm_model3 <- lm_spec %>% 
+  fit(RENTED_BIKE_COUNT ~ 
+        RAINFALL*HUMIDITY + HUMIDITY*DEW_POINT_TEMPERATURE + 
+        SUMMER * SOLAR_RADIATION + WINTER * SOLAR_RADIATION +
+        HOLIDAY*`X7` + HOLIDAY*`X8` + HOLIDAY*`X9` + HOLIDAY*`X10` + 
+        poly(TEMPERATURE, 6) + poly(HUMIDITY, 2) + 
+        poly(DEW_POINT_TEMPERATURE, 4) + poly(SOLAR_RADIATION, 2) + 
+        RAINFALL +  SNOWFALL + VISIBILITY + WIND_SPEED + HOLIDAY + SNOWFALL +
+        WINTER + SPRING + SUMMER + AUTUMN + 
+        `X0`+ `X1` + `X2` + `X3` + `X4` + `X5` + `X6`  + `X11` + 
+        `X12` + `X13` + `X14` + `X15` + `X16` + `X17` + `X18` + `X19` + `X20` + `X21` + `X22` + `X23`, 
+      data = train_data)
+test_results3<-lm_model3 %>%
+predict(new_data=test_data)%>%
+mutate(truth=test_data$RENTED_BIKE_COUNT)
+test_results3[test_results3<0] <- 0
+rsq_model3 <- rsq(test_results3,.pred,truth)
+rmse_model3 <-rmse(test_results3,.pred,truth)
+rsq_model3
+rmse_model3
+
+#Model 4
+lm_model4 <- lm_spec %>% 
+  fit(RENTED_BIKE_COUNT ~ 
+        RAINFALL*HUMIDITY + HUMIDITY*DEW_POINT_TEMPERATURE + 
+        SUMMER * SOLAR_RADIATION + WINTER * SOLAR_RADIATION +
+        HOLIDAY*`X7` + HOLIDAY*`X8` + HOLIDAY*`X9` + HOLIDAY*`X10` + 
+        poly(TEMPERATURE, 8) + poly(HUMIDITY, 6) + 
+        poly(DEW_POINT_TEMPERATURE, 5) + poly(SOLAR_RADIATION, 3) + 
+        RAINFALL +  SNOWFALL + VISIBILITY + WIND_SPEED + HOLIDAY + SNOWFALL +
+        WINTER + SPRING + SUMMER + AUTUMN + 
+        `X0`+ `X1` + `X2` + `X3` + `X4` + `X5` + `X6`  + `X11` + 
+        `X12` + `X13` + `X14` + `X15` + `X16` + `X17` + `X18` + `X19` + `X20` + `X21` + `X22` + `X23`, 
+      data = train_data)
+test_results4<-lm_model4 %>%
+predict(new_data=test_data)%>%
+mutate(truth=test_data$RENTED_BIKE_COUNT)
+test_results4[test_results4<0] <- 0
+rsq_model4 <- rsq(test_results4,.pred,truth)
+rmse_model4 <-rmse(test_results4,.pred,truth)
+rsq_model4
+rmse_model4
+
+# Model 5
+lm_model5 <- lm_spec %>% 
+  fit(RENTED_BIKE_COUNT ~ 
+        RAINFALL*HUMIDITY + HUMIDITY*DEW_POINT_TEMPERATURE + 
+        SUMMER * SOLAR_RADIATION + WINTER * SOLAR_RADIATION +
+        HOLIDAY*`X7` + HOLIDAY*`X8` + HOLIDAY*`X9` + HOLIDAY*`X10` + 
+        poly(TEMPERATURE, 8) + poly(HUMIDITY, 6) + 
+        poly(DEW_POINT_TEMPERATURE, 5) + poly(SOLAR_RADIATION, 3) + 
+        RAINFALL +  SNOWFALL + VISIBILITY + WIND_SPEED + HOLIDAY + SNOWFALL +
+        WINTER + SPRING + SUMMER + AUTUMN + 
+        `X0`+ `X1` + `X2` + `X3` + `X4` + `X5` + `X6`  + `X11` + 
+        `X12` + `X13` + `X14` + `X15` + `X16` + `X17` + `X18` + `X19` + `X20` + `X21` + `X22` + `X23`, 
+      data = train_data)
+test_results5<-lm_model5 %>%
+predict(new_data=test_data)%>%
+mutate(truth=test_data$RENTED_BIKE_COUNT)
+test_results5[test_results5<0] <- 0
+rsq_model5 <- rsq(test_results5,.pred,truth)
+rmse_model5 <-rmse(test_results5,.pred,truth)
+rsq_model5
+rmse_model5
+
+# Model 6 
+lm_model6 <- lm_spec %>% 
+  fit(RENTED_BIKE_COUNT ~ 
+        RAINFALL*HUMIDITY + HUMIDITY*DEW_POINT_TEMPERATURE + 
+        SUMMER * SOLAR_RADIATION + WINTER * SOLAR_RADIATION +
+        HOLIDAY*`X7` + HOLIDAY*`X8` + HOLIDAY*`X9` + HOLIDAY*`X10` + 
+        poly(TEMPERATURE, 10) + poly(HUMIDITY, 8) + 
+        poly(DEW_POINT_TEMPERATURE, 3) + poly(SOLAR_RADIATION, 2) + 
+        RAINFALL +  SNOWFALL + VISIBILITY + WIND_SPEED + HOLIDAY + SNOWFALL +
+        WINTER + SPRING + SUMMER + AUTUMN + 
+        `X0`+ `X1` + `X2` + `X3` + `X4` + `X5` + `X6`  + `X11` + 
+        `X12` + `X13` + `X14` + `X15` + `X16` + `X17` + `X18` + `X19` + `X20` + `X21` + `X22` + `X23`, 
+      data = train_data)
+test_results6<-lm_model6 %>%
+predict(new_data=test_data)%>%
+mutate(truth=test_data$RENTED_BIKE_COUNT)
+test_results6[test_results6<0] <- 0
+rsq_model6 <- rsq(test_results6,.pred,truth)
+rmse_model6 <-rmse(test_results6,.pred,truth)
+rsq_model6
+rmse_model6
+
+# Compare the RSQ and RMSE values to find the best model for our models the 
+# RMSE should be less than 330, RSQ should be greater than 0.72
+
+# Create a Q-Q plot of the best performing model, in my case model 2
+ggplot(test_results2) +
+    stat_qq(aes(sample=truth), color='green') +
+    stat_qq(aes(sample=.pred), color='red')
+
+# In this section we further refined our model to make better predictions by fine tuning
+# the parameters, Its worth there is futher refining you can perfrom to increase the models 
+# accuracy, however for this project, our model is sufficent to produce accurate and reliable
+# predictions
